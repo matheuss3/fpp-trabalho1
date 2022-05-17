@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="covid-19.c">
+    <ClCompile Include="virus.c">
       <Filter>Arquivos de Origem</Filter>
     </ClCompile>
   </ItemGroup>

@@ -1,3 +1,14 @@
+/*
+	Maio/2022
+
+	Aluno: Matheus de Souza Pereira de Oliveira
+	Matricula: 20191BSI0301
+	Disciplina: FPP
+	Professor: Flavio Lamas
+*/
+
+
+
 #pragma once
 #define _CRT_SECURE_NO_WARNINGS 1 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS 1
@@ -69,6 +80,7 @@ void* pegar_ingredientes(inf_infectado* infectado) {
 		inf_laboratorio* laboratorio = infectado->mesa->laboratorios[i];
 		
 		pthread_mutex_lock(&(laboratorio->mutex));
+		// Verificando se quero ingrediente 1
 		if (laboratorio->estoque_si1 > 0 
 			&& infectado->suprimento_inifito != laboratorio->suprimento_inifito1
 			&& infectado->slot1 != laboratorio->suprimento_inifito1
@@ -84,8 +96,7 @@ void* pegar_ingredientes(inf_infectado* infectado) {
 			laboratorio->estoque_si1--;
 		}
 
-		
-
+		// Verificando se quero ingrediente 2
 		if (laboratorio->estoque_si2 > 0
 			&& infectado->suprimento_inifito != laboratorio->suprimento_inifito2
 			&& infectado->slot1 != laboratorio->suprimento_inifito2
@@ -101,6 +112,7 @@ void* pegar_ingredientes(inf_infectado* infectado) {
 			laboratorio->estoque_si2--;
 		}
 		pthread_mutex_unlock(&(laboratorio->mutex));
+		// Liberando semaforo do laboratório para verificação de seu estoque
 		sem_post(&(laboratorio->semaph_count));
 
 	}
@@ -113,6 +125,7 @@ void* thread_laboratorio(void* arg) {
 		sem_wait(&(il->semaph_count));
 		// Verificar o estoque
 		pthread_mutex_lock(&(il->mutex));
+		// Renova estoque se acabou todos os ingredientes
 		if (il->estoque_si1 == 0 && il->estoque_si2 == 0) {
 			il->estoque_si1 = 1;
 			il->estoque_si2 = 1;
@@ -132,15 +145,17 @@ void* thread_laboratorio(void* arg) {
 void* thread_infectado(void* arg) {
 	inf_infectado* iinf = (inf_infectado*)arg;
 	while (*(iinf->nao_acabou)) {
+		if (iinf->qtd_vacinas_aplicadas >= *(iinf->meta)) {
+			iinf->meta_batida = TRUE;
+		}
+
 		if (iinf->slot1 != SLOT_VAZIO && iinf->slot2 != SLOT_VAZIO) {
 			iinf->slot1 = SLOT_VAZIO;
 			iinf->slot2 = SLOT_VAZIO;
 			iinf->qtd_vacinas_aplicadas++;
 		}
 
-		if (iinf->qtd_vacinas_aplicadas >= *(iinf->meta)) {
-			iinf->meta_batida = TRUE;
-		}
+		
 		pthread_mutex_lock(&(iinf->mesa->mutex));
 		pegar_ingredientes(iinf);
 		pthread_mutex_unlock(&(iinf->mesa->mutex));
@@ -216,28 +231,29 @@ int main(int argc, char *argv[]) {
 	inf_infectado i3;
 	inicializa_infectado(&i3, INSUMO_SECRETO, 3, &meta, &nao_acabou, &mesa);
 
+	if (meta > 0) {
+		pthread_create(&(l1.tid), NULL, thread_laboratorio, &l1);
+		pthread_create(&(l2.tid), NULL, thread_laboratorio, &l2);
+		pthread_create(&(l3.tid), NULL, thread_laboratorio, &l3);
+		pthread_create(&(i1.tid), NULL, thread_infectado, &i1);
+		pthread_create(&(i2.tid), NULL, thread_infectado, &i2);
+		pthread_create(&(i3.tid), NULL, thread_infectado, &i3);
 
-	pthread_create(&(l1.tid), NULL, thread_laboratorio, &l1);
-	pthread_create(&(l2.tid), NULL, thread_laboratorio, &l2);
-	pthread_create(&(l3.tid), NULL, thread_laboratorio, &l3);
-	pthread_create(&(i1.tid), NULL, thread_infectado, &i1);
-	pthread_create(&(i2.tid), NULL, thread_infectado, &i2);
-	pthread_create(&(i3.tid), NULL, thread_infectado, &i3);
-
-	while (nao_acabou) {
-		if (l1.meta_batida == TRUE && i1.meta_batida == TRUE
-			&& l2.meta_batida == TRUE && i2.meta_batida == TRUE
-			&& l3.meta_batida == TRUE && i3.meta_batida == TRUE) {
-			nao_acabou = FALSE;
+		while (nao_acabou) {
+			if (l1.meta_batida == TRUE && i1.meta_batida == TRUE
+				&& l2.meta_batida == TRUE && i2.meta_batida == TRUE
+				&& l3.meta_batida == TRUE && i3.meta_batida == TRUE) {
+				nao_acabou = FALSE;
+			}
 		}
-	}
 
-	pthread_join(l1.tid, NULL);
-	pthread_join(i1.tid, NULL);
-	pthread_join(l2.tid, NULL);
-	pthread_join(i2.tid, NULL);
-	pthread_join(l3.tid, NULL);
-	pthread_join(i3.tid, NULL);
+		pthread_join(l1.tid, NULL);
+		pthread_join(i1.tid, NULL);
+		pthread_join(l2.tid, NULL);
+		pthread_join(i2.tid, NULL);
+		pthread_join(l3.tid, NULL);
+		pthread_join(i3.tid, NULL);
+	}
 
 	printf("infectado 1: %d\n", i1.qtd_vacinas_aplicadas);
 	printf("infectado 2: %d\n", i2.qtd_vacinas_aplicadas);
